@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{7b658565-453f-490a-97b3-c77571619bf2}</ProjectGuid>
+    <ProjectHome />
+    <StartupFile>master_new.py</StartupFile>
+    <SearchPath />
+    <WorkingDirectory>../input</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterId>CondaEnv|CondaEnv|BinaryClassifier35</InterpreterId>
+    <CommandLineArguments>train.sqlite3 test.sqlite3 en_core_web_sm -t "E:\WORK\Nisimvw\20201203\input"</CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <IsWindowsApplication>False</IsWindowsApplication>
+    <Name>BinaryClassifier35</Name>
+    <SccProjectName>SAK</SccProjectName>
+    <SccProvider>SAK</SccProvider>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccLocalPath>SAK</SccLocalPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="calc_dim_01.py" />
+    <Compile Include="classify_only.py" />
+    <Compile Include="constants.py" />
+    <Compile Include="copy_dim_08.py" />
+    <Compile Include="dev.py" />
+    <Compile Include="exclude_02.py" />
+    <Compile Include="index_04_09.py" />
+    <Compile Include="master.py" />
+    <Compile Include="master_active.py" />
+    <Compile Include="master_index.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="master_new.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="master_preindex.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="mdb2sqlite.py" />
+    <Compile Include="misc\compare_indices.py" />
+    <Compile Include="misc\init_sqlite3_db.py" />
+    <Compile Include="misc\plot.py" />
+    <Compile Include="misc\shakespeare.py" />
+    <Compile Include="misc\sqlite2mdb.py" />
+    <Compile Include="mrmrnew_05.py" />
+    <Compile Include="mrmr_05.py" />
+    <Compile Include="prep_sqlitedb_00.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="prune_03.py" />
+    <Compile Include="svmvec_06_10.py" />
+    <Compile Include="svm_classify_11.py" />
+    <Compile Include="svm_classify_active_11.py" />
+    <Compile Include="svm_learn_07.py" />
+    <Compile Include="svm_learn_active_07.py" />
+    <Compile Include="svm_parameter_selection_07.py" />
+    <Compile Include="svm_rank_active_11_A.py" />
+    <Compile Include="util.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="active-learning\" />
+    <Folder Include="active-learning\bin\" />
+    <Folder Include="misc" />
+    <Folder Include="mrmr\" />
+    <Folder Include="svmlight\" />
+    <Folder Include="TEST_MASTER\" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="CondaEnv|CondaEnv|BinaryClassifier35" />
+    <InterpreterReference Include="Global|PythonCore|2.7-32" />
+    <InterpreterReference Include="Global|PythonCore|2.7" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="active-learning\.gitignore" />
+    <Content Include="active-learning\bin\classifier.exe" />
+    <Content Include="active-learning\bin\ranker.exe" />
+    <Content Include="active-learning\bin\trainer.exe" />
+    <Content Include="active-learning\classifier.cpp" />
+    <Content Include="active-learning\Makefile" />
+    <Content Include="active-learning\ranker.cpp" />
+    <Content Include="active-learning\trainer.cpp" />
+    <Content Include="mrmr\crank.cpp" />
+    <Content Include="mrmr\Credits" />
+    <Content Include="mrmr\gnu_getline.c" />
+    <Content Include="mrmr\gnu_getline.h" />
+    <Content Include="mrmr\How_to_compile" />
+    <Content Include="mrmr\mrmr.cpp" />
+    <Content Include="mrmr\mrmr.makefile" />
+    <Content Include="mrmr\mrmr_win32.exe" />
+    <Content Include="mrmr\nrutil.cpp" />
+    <Content Include="mrmr\nrutil.h" />
+    <Content Include="mrmr\pbetai.cpp" />
+    <Content Include="mrmr\README" />
+    <Content Include="mrmr\sort2.cpp" />
+    <Content Include="mrmr\test_lung_s3.csv" />
+    <Content Include="svmlight\LICENSE.txt" />
+    <Content Include="svmlight\svm_classify.exe" />
+    <Content Include="svmlight\svm_learn.exe" />
+    <Content Include="TEST_MASTER\test.sqlite3" />
+    <Content Include="TEST_MASTER\train.sqlite3" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+</Project>
