@@ -78,7 +78,7 @@ def main():
     log("Pruning excluded dimensions")
     prune(training_sqlite)
     log("Indexing training database")
-    index(training_sqlite, IndexingOptions())
+    index(temporary_dir, training_sqlite, IndexingOptions())
     log("Running mRMR algorithm to select features")
     mrmr(training_sqlite, temporary_dir)
     log("Pruning excluded dimensions (again)")
@@ -103,7 +103,7 @@ def main():
     copy_dim(training_sqlite, test_sqlite)
 
     log("Indexing test database")
-    index(test_sqlite, IndexingOptions())
+    index(temporary_dir, test_sqlite, IndexingOptions(), True)
     
     log("Outputting test samples to temporary data file")
     test_samples = P.join(temporary_dir, "test-samples.dat")

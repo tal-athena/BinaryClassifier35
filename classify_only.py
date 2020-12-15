@@ -124,7 +124,7 @@ def main():
 
     log("Indexing test database")
     
-    index(test_sqlite3, nlp)    
+    index(temporary_dir, test_sqlite3, nlp, True)    
     
     log("Outputting test samples to temporary data file")
     test_samples = P.join(temporary_dir, "test-samples.dat")

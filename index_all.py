@@ -73,7 +73,7 @@ def main():
     log("Indexing training database")
 
     
-    index(training_sqlite, nlp)    
+    index(temporary_dir, training_sqlite, nlp)    
 
     log("Running mRMR algorithm to select features")
     mrmr(training_sqlite, temporary_dir)
@@ -100,7 +100,7 @@ def main():
 
     log("Indexing test database")
     
-    index(test_sqlite, nlp)    
+    index(temporary_dir, test_sqlite, nlp, True)    
     
     log("Outputting test samples to temporary data file")
     test_samples = P.join(temporary_dir, "test-samples.dat")
