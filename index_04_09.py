@@ -53,6 +53,20 @@ def create_parser(usage):
             help='Specify the number of documents to process per batch')
     return parser
 
+def remove_unnecessary_dimensions(filename):
+    conn = sqlite3.connect(filename)
+    cur = conn.cursor()
+    cur.execute('SELECT DimensionId FROM Dimensions')
+    dimension_ids = [ d[0] for d in cur.fetchall() ]
+
+    for dim in dimension_ids:
+        cur.execute("SELECT count(*) FROM DocumentsToDimensions WHERE DimensionId=%d" % dim)
+        cnt = cur.fetchone()[0]
+        if cnt == 0:
+            cur.execute('DELETE FROM Dimensions WHERE DimensionId=%d'% dim)
+    conn.commit()
+    conn.close()
+
 def add_external_dimensions(temporary_dir, filename, is_test):
 
     print('add_external_dimensions(): processing %s' % filename)
@@ -104,7 +118,7 @@ def add_external_dimensions(temporary_dir, filename, is_test):
                        (dim_dict[col], row['ED_ENC_NUM'], row[col]))
             
             conn.commit()
-
+    
     conn.close()
     print('add_external_dimensions(): %s finished' % filename)
 
@@ -192,6 +206,7 @@ def index(temporary_dir, filename, nlp, is_test = False):
     c.close()
 
     add_external_dimensions(temporary_dir, filename, is_test)
+    remove_unnecessary_dimensions(filename)
 
     conn = sqlite3.connect(filename)
     c = conn.cursor()
