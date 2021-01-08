@@ -13,7 +13,7 @@
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <InterpreterId>CondaEnv|CondaEnv|BinaryClassifier35</InterpreterId>
-    <CommandLineArguments>train.sqlite3 test.sqlite3 en_core_web_sm -t "E:\WORK\Nisimvw\20201218\Seuss 2012171734"</CommandLineArguments>
+    <CommandLineArguments>train.sqlite3 test.sqlite3 en_core_web_sm -t "E:\WORK\Nisimvw\Drt\input"</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <IsWindowsApplication>False</IsWindowsApplication>
     <Name>BinaryClassifier35</Name>

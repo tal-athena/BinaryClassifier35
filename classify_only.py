@@ -9,14 +9,16 @@ import datetime
 from calc_dim_01 import calc_dim
 from exclude_02 import exclude_stopwords_spacy, exclude_shorter_than, exclude_non_alpha_partial, exclude_unigrams_shorter_than, exclude_ngrams_shorter_than
 from prune_03 import prune
-from index_04_09 import index
+from index_04_09 import index, index_with_pre
 from mrmrnew_05 import mrmr
 from svmvec_06_10 import svmvec
 from svm_learn_07 import learn
-from copy_dim_08 import copy_dim
+from copy_dim_08 import copy_dim, copy_doc_to_dim
 from svm_classify_11 import classify
 from prep_sqlitedb_00 import prep_sqlite, CSTRING
 import spacy
+import json
+from timeit import default_timer as timer
 
 
 def create_parser():
@@ -110,8 +112,19 @@ def main():
     finally:
         if (conn):
             conn.close()            
-
+    
     nlp = spacy.load(process_language)
+
+    parameter_file = P.join(temporary_dir, "parameters.json")
+
+    use_index_file = False
+    index_sqlite = ''
+    if P.exists(parameter_file) == True:
+        f = open(parameter_file)
+        data = json.load(f)
+        if 'indexDir' in data:
+            use_index_file = True
+            index_sqlite = P.join(data['indexDir'], 'index.sqlite3')
 
     #
     # Test section
@@ -122,9 +135,16 @@ def main():
     log("Copying dimensions from training database to test database")
     copy_dim(training_sqlite3, test_sqlite3)
 
-    log("Indexing test database")
     
-    index(temporary_dir, test_sqlite3, nlp, True)    
+    log("Indexing test database")
+    if use_index_file == True:
+        start = timer()
+        copy_doc_to_dim(index_sqlite, test_sqlite3)
+        end = timer()
+        print ('Copy Dimenions and DimensionsToDocuments table from indexed db to test db elapsed time: {:f} seconds'.format(end - start))
+        index_with_pre(temporary_dir, test_sqlite3, index_sqlite, nlp, True)
+    else:
+        index(temporary_dir, test_sqlite3, nlp, True)    
     
     log("Outputting test samples to temporary data file")
     test_samples = P.join(temporary_dir, "test-samples.dat")

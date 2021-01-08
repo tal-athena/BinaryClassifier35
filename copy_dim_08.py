@@ -49,6 +49,27 @@ def copy_dim(src, dst):
     c2.close()
 
     conn2.commit()
+def copy_doc_to_dim(src, dst):
+    """
+    Copy dimension information from conn1 into conn2.  Any existing information
+    is destroyed.
+    """
+    conn1 = sqlite3.connect(src)
+    conn2 = sqlite3.connect(dst)
+
+    c1 = conn1.cursor()
+    c2 = conn2.cursor()
+    util.drop_tables(c2, [ 'DocumentsToDimensions' ])
+    util.init_dims_to_docs(c2)
+    
+    c1.execute("""SELECT DimensionId, ED_ENC_NUM, Count FROM DocumentsToDimensions""")
+    for row in c1:
+        c2.execute('INSERT INTO DocumentsToDimensions VALUES (?, ?, ?)', row)
+
+    c1.close()
+    c2.close()
+
+    conn2.commit()
 
 def main():
     parser = create_parser('usage: %s training.sqlite3 test.sqlite [options]' % __file__)

@@ -54,18 +54,36 @@ def create_parser(usage):
     return parser
 
 def remove_unnecessary_dimensions(filename):
+    
     conn = sqlite3.connect(filename)
     cur = conn.cursor()
     cur.execute('SELECT DimensionId FROM Dimensions')
     dimension_ids = [ d[0] for d in cur.fetchall() ]
 
+    cur.execute('SELECT DISTINCT DimensionId FROM DocumentsToDimensions')
+
+    target_dimension_ids = set([ d[0] for d in cur.fetchall() ])
+
     for dim in dimension_ids:
-        cur.execute("SELECT count(*) FROM DocumentsToDimensions WHERE DimensionId=%d" % dim)
-        cnt = cur.fetchone()[0]
-        if cnt == 0:
+        if dim not in target_dimension_ids:
             cur.execute('DELETE FROM Dimensions WHERE DimensionId=%d'% dim)
     conn.commit()
-    conn.close()
+    cur.close()
+    
+def remove_unnecessary_documents_to_dimensions(filename):
+    conn = sqlite3.connect(filename)
+    cur = conn.cursor()
+    cur.execute('SELECT DISTINCT ED_ENC_NUM FROM DocumentsToDimensions')
+    document_ids = [ d[0] for d in cur.fetchall() ]
+
+    cur.execute('SELECT DISTINCT ED_ENC_NUM FROM Documents')
+    target_documnet_ids = set([ d[0] for d in cur.fetchall() ])
+
+    for id in document_ids:
+        if id not in target_documnet_ids:
+            cur.execute('DELETE FROM DocumentsToDimensions WHERE ED_ENC_NUM = ?', (id,))
+    conn.commit()
+    cur.close()
 
 def add_external_dimensions(temporary_dir, filename, is_test):
 
@@ -105,23 +123,139 @@ def add_external_dimensions(temporary_dir, filename, is_test):
         else:
             for col in field_names:
                 if col == 'ED_ENC_NUM': continue
-                cur.execute('INSERT INTO Dimensions VALUES (?, ?, ?, 0, 0, 0)',
+                cur.execute('INSERT INTO Dimensions VALUES (?, ?, ?, 0, 0, 0)', 
                    (new_dimension_id, col,'RegEx'))
                 dim_dict[col] = new_dimension_id
                 new_dimension_id = new_dimension_id + 1
-            conn.commit()
-            
+
         for row in reader:       
             for col in field_names:
-                if col != 'ED_ENC_NUM' and int(row[col]) > 0 and col in dim_dict:
+                if row[col].isnumeric() and col != 'ED_ENC_NUM' and int(row[col]) > 0 and col in dim_dict:
                     cur.execute('INSERT INTO DocumentsToDimensions (DimensionId, ED_ENC_NUM, Count) VALUES (?, ?, ?)',
                        (dim_dict[col], row['ED_ENC_NUM'], row[col]))
             
-            conn.commit()
-    
-    conn.close()
+    conn.commit()
+    cur.close()
     print('add_external_dimensions(): %s finished' % filename)
+def index_missing_documents(filename, indexfile, nlp):
 
+    index_conn = sqlite3.connect(indexfile)
+    conn = sqlite3.connect(filename)
+
+    cur = conn.cursor()
+    index_cur = index_conn.cursor()
+
+
+    params = util.get_params(cur, filename)
+    stemmer = params['stemmer']
+    print ('index_missing_documents(): stemmer: %s' % stemmer)
+
+    all_dim = util.get_dimensions(cur, 0)
+    assert all_dim, "You must calculate dimensions prior to indexing."
+
+    all_include = util.get_all_include_regex(cur)
+
+    cur.execute("SELECT COUNT(*) FROM Dimensions WHERE PartOfSpeech = 'bigram'")
+    nBigrams = int(cur.fetchone()[0])
+    print ('Number of bigrams: ', nBigrams)
+    do_bigrams = nBigrams > 0
+
+    cur.execute("SELECT COUNT(*) FROM Dimensions WHERE PartOfSpeech = 'trigram'")
+    nTrigrams = int(cur.fetchone()[0])
+    print ('Number of trigrams: ', nTrigrams)
+    do_trigrams = nTrigrams > 0
+
+    #
+    # If the POS column contains "unigram", then it means we didn't perform POS tagging when calculating dimensions.
+    #
+    cur.execute("SELECT COUNT(*) FROM Dimensions WHERE PartOfSpeech = 'unigram'")
+    pos_tag = int(cur.fetchone()[0]) == 0
+
+    cur.execute('SELECT ED_ENC_NUM FROM Documents')
+    document_ids = [ d[0] for d in cur.fetchall() ]
+
+    index_cur.execute('SELECT ED_ENC_NUM FROM Documents')
+    index_document_ids = [d[0] for d in index_cur.fetchall()]
+    
+    missing_document_ids = []
+    for id in document_ids:
+        if id not in index_document_ids:
+            missing_document_ids.append(id)
+            cur.execute('SELECT ED_ENC_NUM, NOTE_TEXT, Score FROM Documents WHERE ED_ENC_NUM=?', (id,))
+            index_cur.execute('INSERT INTO Documents (ED_ENC_NUM, NOTE_TEXT, Score) VALUES(?, ?, ?)', cur.fetchone())
+    
+    conn.commit()
+    cur.close()    
+    index_conn.commit()
+    index_cur.close()
+    print ("fetched %d missing document ids" % len(missing_document_ids))
+
+    main_process(nlp, missing_document_ids, indexfile, stemmer, all_include, pos_tag, do_bigrams, do_trigrams, all_dim)
+
+    index_conn = sqlite3.connect(indexfile)
+    conn = sqlite3.connect(filename)
+
+    cur = conn.cursor()
+    index_cur = index_conn.cursor()
+
+    index_cur.execute('SELECT DimensionId, ED_ENC_NUM, Count FROM DocumentsToDimensions')
+    for row in index_cur:
+        if row[1] in missing_document_ids:
+            cur.execute('INSERT INTO DocumentsToDimensions VALUES(?, ?, ?)', row)
+    conn.commit()
+    cur.close()
+    index_cur.close()
+def index_with_pre(temporary_dir, training_sqlite, index_sqlite, nlp, is_test):
+
+    start = timer()
+
+    remove_unnecessary_documents_to_dimensions(training_sqlite)
+
+    index_missing_documents(training_sqlite, index_sqlite, nlp)
+    add_external_dimensions(temporary_dir, training_sqlite, is_test)
+
+    conn = sqlite3.connect(training_sqlite)
+    c = conn.cursor()
+
+    util.add_indexes_for_dimensions_to_docs(c)
+
+    conn.commit()
+    c.close()
+
+    
+    remove_unnecessary_dimensions(training_sqlite)
+
+    conn = sqlite3.connect(training_sqlite)
+    c = conn.cursor()
+
+    all_dim = util.get_dimensions(c, 0)
+
+    c.execute('SELECT COUNT(ED_ENC_NUM) FROM Documents')
+    num_total_docs = int(c.fetchone()[0])
+    end = timer()
+    print ('Prepare Dimensions and DimensionsToDocuments table elapsed time: {:f} seconds'.format(end - start))
+
+    start = timer()
+    util.log ("Starting IDF calculation")
+
+    for dim_id, _, _ in all_dim:
+        c.execute("""SELECT COUNT(DimensionId)
+                FROM DocumentsToDimensions
+                WHERE DimensionId = ?""", (dim_id,))
+        freq = int(c.fetchone()[0])
+        idf = log10(num_total_docs/(1+freq))
+        c.execute(
+                'UPDATE Dimensions SET IDF = ? WHERE DimensionId = ?',
+                (idf, dim_id))
+
+    #
+    # Save and exit.
+    #
+    conn.commit()
+    c.close()
+
+    end = timer()
+    util.log ('End IDF calculation elapsed time: {:f} seconds'.format(end - start))
 def index(temporary_dir, filename, nlp, is_test = False):
     """
     Perform indexing.  Each document is stemmed, and then the non-excluded
@@ -232,6 +366,89 @@ def index(temporary_dir, filename, nlp, is_test = False):
 
     end = timer()
     util.log ('End IDF calculation elapsed time: {:f} seconds'.format(end - start))
+
+def index_without_additional_dimension(temporary_dir, filename, nlp):
+    """
+    Perform indexing.  Each document is stemmed, and then the non-excluded
+    dimensions are counted for that document.  The result is put into the
+    DocumentsToDimensions table.
+    """
+    conn = sqlite3.connect(filename)
+    c = conn.cursor()
+
+    doc_to_dim_exist = util.check_if_tables_exist( c, [ 'DocumentsToDimensions' ])
+    if doc_to_dim_exist:
+        print ('Using pre-calculated DocumentsToDimensions.')
+        c.close()
+        return
+
+    # Create the table
+    util.init_dims_to_docs(c)
+
+    params = util.get_params(c, filename)
+    stemmer = params['stemmer']
+    print ('index(): stemmer: %s' % stemmer)
+
+
+    all_dim = util.get_dimensions(c, 0)
+    assert all_dim, "You must calculate dimensions prior to indexing."
+
+    all_include = util.get_all_include_regex(c)
+
+    c.execute('SELECT COUNT(ED_ENC_NUM) FROM Documents')
+    num_total_docs = int(c.fetchone()[0])
+
+    c.execute('DELETE FROM DocumentsToDimensions')
+
+    c.execute("SELECT COUNT(*) FROM Dimensions WHERE PartOfSpeech = 'bigram'")
+    nBigrams = int(c.fetchone()[0])
+    print ('Number of bigrams: ', nBigrams)
+    do_bigrams = nBigrams > 0
+
+    c.execute("SELECT COUNT(*) FROM Dimensions WHERE PartOfSpeech = 'trigram'")
+    nTrigrams = int(c.fetchone()[0])
+    print ('Number of trigrams: ', nTrigrams)
+    do_trigrams = nTrigrams > 0
+
+    #
+    # If the POS column contains "unigram", then it means we didn't perform POS tagging when calculating dimensions.
+    #
+    c.execute("SELECT COUNT(*) FROM Dimensions WHERE PartOfSpeech = 'unigram'")
+    pos_tag = int(c.fetchone()[0]) == 0
+
+    cmd = 'SELECT ED_ENC_NUM FROM Documents'
+    # if options.limit:
+    #    cmd += ' LIMIT %d' % options.limit
+    #    num_total_docs = min(options.limit, num_total_docs)
+
+    #
+    # TODO: why is fetchmany not working?
+    #
+    #document_ids = c.execute(cmd).fetchmany()
+    document_ids = []
+    for row in c.execute(cmd):
+        document_ids.append(row[0])
+    print ("fetched %d document ids" % len(document_ids))
+    
+    #
+    # Terminate the SQL connection so that the subprocesses can use it.
+    #
+    conn.commit()
+    conn.close()
+
+    #
+    # https://docs.python.org/2/library/array.html#module-array
+    #
+    
+    main_process(nlp, document_ids, filename, stemmer, all_include, pos_tag, do_bigrams, do_trigrams, all_dim)  
+    
+
+    conn = sqlite3.connect(filename)
+    c = conn.cursor()
+    util.add_indexes_for_dimensions_to_docs(c)
+
+    conn.commit()
+    c.close()
 
 def main_process(nlp, document_ids, fpath, stemmer, all_include, pos_tag, do_bigrams, do_trigrams, all_dim):
     """Read document numbers from input_queue, read the actual documents from the database, process_document them, write back to the database."""

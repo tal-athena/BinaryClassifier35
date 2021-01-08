@@ -9,15 +9,16 @@ import datetime
 from calc_dim_01 import calc_dim
 from exclude_02 import exclude_stopwords_spacy, exclude_shorter_than, exclude_non_alpha_partial, exclude_unigrams_shorter_than, exclude_ngrams_shorter_than
 from prune_03 import prune
-from index_04_09 import index
+from index_04_09 import index, index_with_pre
 from mrmrnew_05 import mrmr
 from svmvec_06_10 import svmvec
 from svm_learn_07 import learn
-from copy_dim_08 import copy_dim
+from copy_dim_08 import copy_dim, copy_doc_to_dim
 from svm_classify_11 import classify
 from prep_sqlitedb_00 import prep_sqlite, CSTRING
 import spacy
-
+import json
+from timeit import default_timer as timer
 
 def create_parser():
     from optparse import OptionParser
@@ -54,25 +55,45 @@ def main():
     training_sqlite = P.join(temporary_dir, training_sqlite3)
     prep_sqlite(training_sqlite)
 
-    log("Calculating dimensions")
-    calc_dim(nlp, training_sqlite, 0, False)
-    log("Excluding dimensions")
+    parameter_file = P.join(temporary_dir, "parameters.json")
 
-    #if process_language == 'en':
-    #    exclude_stopwords(training_sqlite)        
-    #else :
-    #    exclude_stopwords_spacy(training_sqlite, process_language)
+    use_index_file = False
+    index_sqlite = ''
+    if P.exists(parameter_file) == True:
+        f = open(parameter_file)
+        data = json.load(f)
+        if 'indexDir' in data:
+            use_index_file = True
+            index_sqlite = P.join(data['indexDir'], 'index.sqlite3')
 
-    exclude_stopwords_spacy(nlp, training_sqlite, process_language)
+    if use_index_file == True:
+        start = timer()
+        copy_dim(index_sqlite, training_sqlite)
+        copy_doc_to_dim(index_sqlite, training_sqlite)
+        end = timer()
+        print ('Copy Dimenions and DimensionsToDocuments table from indexed db to train db elapsed time: {:f} seconds'.format(end - start))
+        index_with_pre(temporary_dir, training_sqlite, index_sqlite, nlp, False)
+    else:
 
-    exclude_non_alpha_partial(training_sqlite)
-    exclude_unigrams_shorter_than(training_sqlite, 3)
-    exclude_ngrams_shorter_than(training_sqlite, 1)
-    log("Pruning excluded dimensions")
-    prune(training_sqlite)
-    log("Indexing training database")
+        log("Calculating dimensions")
+        calc_dim(nlp, training_sqlite, 0, False)
+        log("Excluding dimensions")
 
-    index(temporary_dir, training_sqlite, nlp)    
+        #if process_language == 'en':
+        #    exclude_stopwords(training_sqlite)        
+        #else :
+        #    exclude_stopwords_spacy(training_sqlite, process_language)
+
+        exclude_stopwords_spacy(nlp, training_sqlite, process_language)
+
+        exclude_non_alpha_partial(training_sqlite)
+        exclude_unigrams_shorter_than(training_sqlite, 3)
+        exclude_ngrams_shorter_than(training_sqlite, 1)
+        log("Pruning excluded dimensions")
+        prune(training_sqlite)
+        log("Indexing training database")
+
+        index(temporary_dir, training_sqlite, nlp)    
 
     log("Running mRMR algorithm to select features")
     mrmr(training_sqlite, temporary_dir)
@@ -98,8 +119,14 @@ def main():
     copy_dim(training_sqlite, test_sqlite)
 
     log("Indexing test database")
-    
-    index(temporary_dir, test_sqlite, nlp, True)    
+    if use_index_file == True:
+        start = timer()
+        copy_doc_to_dim(index_sqlite, test_sqlite)
+        end = timer()
+        print ('Copy Dimenions and DimensionsToDocuments table from indexed db to test db elapsed time: {:f} seconds'.format(end - start))
+        index_with_pre(temporary_dir, test_sqlite, index_sqlite, nlp, True)
+    else :
+        index(temporary_dir, test_sqlite, nlp, True)    
     
     log("Outputting test samples to temporary data file")
     test_samples = P.join(temporary_dir, "test-samples.dat")
